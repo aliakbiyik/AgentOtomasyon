@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== MÜŞTERİ ====================
+model Customer {
+  id          Int       @id @default(autoincrement())
+  name        String
+  email       String    @unique
+  phone       String?
+  address     String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  orders      Order[]
+  tickets     Ticket[]
+}
+
+// ==================== ÜRÜN & STOK ====================
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  description String?
+  products    Product[]
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String?     @db.Text
+  price       Decimal     @db.Decimal(10, 2)
+  stock       Int         @default(0)
+  minStock    Int         @default(5)
+  image       String?
+  categoryId  Int
+  category    Category    @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+}
+
+// ==================== SİPARİŞ ====================
+model Order {
+  id          Int         @id @default(autoincrement())
+  orderNumber String      @unique
+  customerId  Int
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  status      OrderStatus @default(PENDING)
+  totalAmount Decimal     @db.Decimal(10, 2)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  items       OrderItem[]
+  invoice     Invoice?
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+// ==================== FATURA & MUHASEBE ====================
+model Invoice {
+  id            Int           @id @default(autoincrement())
+  invoiceNumber String        @unique
+  orderId       Int           @unique
+  order         Order         @relation(fields: [orderId], references: [id])
+  amount        Decimal       @db.Decimal(10, 2)
+  taxAmount     Decimal       @db.Decimal(10, 2)
+  totalAmount   Decimal       @db.Decimal(10, 2)
+  status        InvoiceStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  paidAt        DateTime?
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  category    String
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+// ==================== İNSAN KAYNAKLARI ====================
+model Employee {
+  id          Int            @id @default(autoincrement())
+  name        String
+  email       String         @unique
+  phone       String?
+  department  String
+  position    String
+  salary      Decimal        @db.Decimal(10, 2)
+  hireDate    DateTime       @default(now())
+  status      EmployeeStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  leaves      Leave[]
+  tickets     Ticket[]       @relation("AssignedTickets")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+}
+
+model Leave {
+  id         Int         @id @default(autoincrement())
+  employeeId Int
+  employee   Employee    @relation(fields: [employeeId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  type       LeaveType
+  status     LeaveStatus @default(PENDING)
+  reason     String?     @db.Text
+  createdAt  DateTime    @default(now())
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  PERSONAL
+  MATERNITY
+  PATERNITY
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CVApplication {
+  id          Int       @id @default(autoincrement())
+  name        String
+  email       String
+  phone       String?
+  position    String
+  cvFile      String?
+  cvText      String?   @db.LongText
+  aiScore     Int?
+  aiAnalysis  String?   @db.LongText
+  status      CVStatus  @default(PENDING)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+enum CVStatus {
+  PENDING
+  REVIEWED
+  SHORTLISTED
+  REJECTED
+  HIRED
+}
+
+// ==================== DESTEK ====================
+model Ticket {
+  id           Int          @id @default(autoincrement())
+  ticketNumber String       @unique
+  customerId   Int
+  customer     Customer     @relation(fields: [customerId], references: [id])
+  assignedToId Int?
+  assignedTo   Employee?    @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  subject      String
+  description  String       @db.Text
+  status       TicketStatus @default(OPEN)
+  priority     Priority     @default(MEDIUM)
+  aiSuggestion String?      @db.LongText
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// ==================== AI TAHMİNLERİ ====================
+model SalesForecast {
+  id          Int      @id @default(autoincrement())
+  weekStart   DateTime
+  weekEnd     DateTime
+  prediction  Decimal  @db.Decimal(10, 2)
+  aiAnalysis  String?  @db.LongText
+  createdAt   DateTime @default(now())
+}
+
+// ==================== BİLDİRİMLER ====================
+model Notification {
+  id        Int      @id @default(autoincrement())
+  type      String
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
