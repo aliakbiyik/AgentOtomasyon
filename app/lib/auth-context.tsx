@@ -6,7 +6,8 @@ interface Customer {
   id: number
   name: string
   email: string
-  phone?: string
+  phone?: string | null
+  address?: string | null
 }
 
 interface AuthContextType {
@@ -23,45 +24,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Sayfa yüklendiğinde localStorage'dan email kontrol et
-    const savedEmail = localStorage.getItem('customerEmail')
-    if (savedEmail) {
-      loginWithEmail(savedEmail)
-    } else {
-      setLoading(false)
-    }
+    checkSession()
   }, [])
 
-  const loginWithEmail = async (email: string): Promise<boolean> => {
+  const checkSession = async () => {
     try {
-      const response = await fetch(`/api/auth/customer?email=${encodeURIComponent(email)}`)
+      const response = await fetch('/api/auth/session')
       if (response.ok) {
-        const data = await response.json()
-        setCustomer(data)
-        localStorage.setItem('customerEmail', email)
-        setLoading(false)
-        return true
+        const body = await response.json() // null or user object
+        setCustomer(body)
       } else {
-        localStorage.removeItem('customerEmail')
         setCustomer(null)
-        setLoading(false)
-        return false
       }
     } catch (error) {
-      console.error('Login hatası:', error)
+      console.error('Session check failed', error)
+      setCustomer(null)
+    } finally {
       setLoading(false)
-      return false
     }
+  }
+
+  const loginWithEmail = async (email: string): Promise<boolean> => {
+    // Deprecated method signature kept for compatibility, but logic updated
+    // Ideally this should trigger a session re-check
+    await checkSession()
+    return true
   }
 
   const login = async (email: string): Promise<boolean> => {
-    setLoading(true)
-    return loginWithEmail(email)
+    // Trigger session update after form submission logic (which happens elsewhere)
+    await checkSession()
+    return true
   }
 
-  const logout = () => {
-    localStorage.removeItem('customerEmail')
-    setCustomer(null)
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      setCustomer(null)
+    } catch (error) {
+      console.error('Logout failed', error)
+    }
   }
 
   return (
